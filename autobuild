@@ -1,0 +1,113 @@
+#!/bin/bash
+#Copyright (C) 2019 Xingru97
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# GCC AUTOBUILD SCRIPT Written by Xingru in 2019
+export NOZIP
+export TARGET_BUILD_GCC
+export BUILDHOME
+export TARGET
+export PREFIX
+export THREAD
+export PKGDESP
+export LANG
+[ "$NOUNZIP" == "" ] && export NOUNZIP=0
+[ "$TARGET_BUILD_GCC" == "" ] && export TARGET_BUILD_GCC=gcc
+[ "$BUILDHOME" == "" ] && export BUILDHOME=$(pwd)
+[ "$TARGET" == "" ] && export TARGET=x86_64-linux-gnu
+[ "$PREFIX" == "" ] && export PREFIX=$BUILDHOME/install
+[ "$THREAD" == "" ] && export THREAD=4
+[ "$PKGDESP" == "" ] && export PKGDESP="GCCBUILD`date +%s`"
+[ "$GCCLANG" == "" ] && export GCCLANG="c,c++"
+set -u
+echo Configure:
+echo TARGET_BUILD_GCC : $TARGET_BUILD_GCC
+echo BUILDHOME : $BUILDHOME
+echo BUILD TARGET : $TARGET
+echo INSTALL PATH PREFIX : $PREFIX
+echo BUILDING THREAD : $THREAD THREADS
+echo BUILD DESP : $PKGDESP
+echo ENABLED LANGUAGES : $GCCLANG
+sleep 5
+echo PROGRAM RUNNING!
+
+start_time=`date +%s`
+echo Extracting files...
+if [ "$NOUNZIP" == "0" ];then
+[ -d builds ] && rm -rf builds
+[ -d unzip ] && rm -rf unzip
+[ -d $PREFIX ] && rm -rf $PREFIX
+mkdir -p builds install unzip
+for i in `ls down | xargs`
+do
+	echo Extracting $i
+	tar xf down/$i -C unzip
+done
+echo Downloading prerequisites from gnu.org...
+cd $BUILDHOME/unzip/gcc*
+contrib/download_prerequisites
+fi
+cd $BUILDHOME
+mkdir -vp builds/binutils
+cd builds/binutils
+$BUILDHOME/unzip/binutils*/configure --target=$TARGET --disable-multilib --prefix=$PREFIX
+make -j$THREAD && make install
+
+
+cd $BUILDHOME/unzip/linux*
+make INSTALL_HDR_PATH=$PREFIX/$TARGET headers_install
+
+
+mkdir -v $BUILDHOME/builds/gcc
+cd $BUILDHOME/builds/gcc
+$BUILDHOME/unzip/gcc*/configure --prefix=$PREFIX --target=$TARGET --enable-languages=$GCCLANG --disable-multilib --with-pkgversion=\"$PKGDESP\"
+sleep 15
+make -j$THREAD all-gcc && make install-gcc
+
+export PATH=$PREFIX/bin:$PATH
+
+mkdir -v $BUILDHOME/builds/glibc
+cd $BUILDHOME/builds/glibc
+$BUILDHOME/unzip/glibc*/configure --prefix=$PREFIX/$TARGET --host=$TARGET --with-headers=$PREFIX/$TARGET/include --disable-multilib libc_cv_forced_unwind=yes
+make install-bootstrap-headers=yes install-headers
+make -j$THREAD csu/subdir_lib
+install csu/crt1.o csu/crti.o csu/crtn.o $PREFIX/$TARGET/lib
+$TARGET_BUILD_GCC -nostdlib -nostartfiles -shared -x c /dev/null -o $PREFIX/$TARGET/lib/libc.so
+touch $PREFIX/$TARGET/include/gnu/stubs.h
+
+
+cd $BUILDHOME/builds/gcc
+make -j$THREAD all-target-libgcc
+make install-target-libgcc
+
+cd $BUILDHOME/builds/glibc
+make CFLAGS='-Wno-error -O2' -j$THREAD
+make install
+
+
+cd $BUILDHOME/builds/gcc
+make -j$THREAD
+make install
+
+
+cd $BUILDHOME
+end_time=`date +%s`
+
+echo BUILD FINISHED!
+echo START TIME : UTC $start_time 
+echo FINISH TIME : UTC $end_time
+let end_time=end_time-start_time
+let start_time=end_time/60
+echo BUILD TIME: $end_time s,about $start_time min.
