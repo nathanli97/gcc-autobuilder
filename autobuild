@@ -8,7 +8,6 @@ export PREFIX
 export THREAD
 export PKGDESP
 export GCCLANG
-export USETUNA
 echo GCC 自动化编译脚本 By Xingru
 [ "$NOUNZIP" == "" ] && export NOUNZIP=0
 [ "$TARGET_BUILD_GCC" == "" ] && export TARGET_BUILD_GCC=gcc
@@ -18,7 +17,6 @@ echo GCC 自动化编译脚本 By Xingru
 [ "$THREAD" == "" ] && export THREAD=4
 [ "$PKGDESP" == "" ] && export PKGDESP="GCCBUILD`date +%s`"
 [ "$GCCLANG" == "" ] && export GCCLANG="c,c++"
-[ "$USETUNA" == "" ] && export USETUNA=0
 installed_gcc=0
 installed_gpp=0
 installed_make=0
@@ -64,7 +62,6 @@ echo INSTALL PATH PREFIX : $PREFIX
 echo BUILDING THREAD : $THREAD THREADS
 echo BUILD DESP : $PKGDESP
 echo ENABLED LANGUAGES : $GCCLANG
-echo USE-TSINGHUA-TUNA-MIRROR : $USETUNA
 #echo 注意：如果你在国内，推荐Ctrl-Z然后使用加上USETUNA=1选项来使用清华镜像源。如：USETUNA=1 ./autobuild
 sleep 5
 echo PROGRAM RUNNING!
@@ -82,10 +79,10 @@ do
 	tar xf down/$i -C unzip
 done
 cd $BUILDHOME/unzip/gcc*
-mv $BUILDHOME/down/gmp* . || exit 1
-mv $BUILDHOME/down/mpfr* . || exit 1
-mv $BUILDHOME/down/mpc* . || exit 1
-mv $BUILDHOME/down/isl* . || exit 1
+mv $BUILDHOME/unzip/gmp* . || exit 1
+mv $BUILDHOME/unzip/mpfr* . || exit 1
+mv $BUILDHOME/unzip/mpc* . || exit 1
+mv $BUILDHOME/unzip/isl* . || exit 1
 ln -s gmp* gmp || exit 1
 ln -s mpfr* mpfr || exit 1
 ln -s mpc* mpc || exit 1
