@@ -1,19 +1,4 @@
 #!/bin/bash
-#Copyright (C) 2019 Xingru97
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
 # GCC AUTOBUILD SCRIPT Written by Xingru in 2019
 export NOZIP
 export TARGET_BUILD_GCC
@@ -22,7 +7,9 @@ export TARGET
 export PREFIX
 export THREAD
 export PKGDESP
-export LANG
+export GCCLANG
+export USETUNA
+echo GCC 自动化编译脚本 By Xingru
 [ "$NOUNZIP" == "" ] && export NOUNZIP=0
 [ "$TARGET_BUILD_GCC" == "" ] && export TARGET_BUILD_GCC=gcc
 [ "$BUILDHOME" == "" ] && export BUILDHOME=$(pwd)
@@ -31,6 +18,43 @@ export LANG
 [ "$THREAD" == "" ] && export THREAD=4
 [ "$PKGDESP" == "" ] && export PKGDESP="GCCBUILD`date +%s`"
 [ "$GCCLANG" == "" ] && export GCCLANG="c,c++"
+[ "$USETUNA" == "" ] && export USETUNA=0
+installed_gcc=0
+installed_gpp=0
+installed_make=0
+installed_gawk=0
+for i in `dpkg -l | cut -d ' ' -f 3 | xargs`
+do
+	[ "$i" == "gcc" ] && installed_gcc=1
+	[ "$i" == "g++" ] && installed_gpp=1
+	[ "$i" == "make" ] && installed_make=1
+	[ "$i" == "gawk" ] && installed_gawk=1
+done
+if [ $installed_gcc == 0 -o $installed_gpp == 0 -o $installed_make == 0 -o $installed_gawk == 0 ];then
+echo 错误：一下软件包是必备的。但是有一些软件包未安装。
+echo 软件包安装情况：
+[ $installed_gcc == 1 ] && echo gcc 已安装 || echo gcc 未安装,请使用sudo apt install gcc安装。
+[ $installed_gpp == 1 ] && echo g++ 已安装 || echo g++ 未安装,请使用sudo apt install g++安装。
+[ $installed_make == 1 ] && echo make 已安装 || echo make 未安装,请使用sudo apt install make安装。
+[ $installed_gawk == 1 ] && echo gawk 已安装 || echo gawk 未安装,请使用sudo apt install gawk安装。
+exit 1
+fi
+c_gawk_major_version=`gawk --version | grep Awk | cut -d " " -f 3 | cut -d '.' -f 1`;
+if [ $c_gawk_major_version -lt 4 ];then
+echo 警告：当前gawk版本过低。继续编译可能因出错而中断。
+fi
+c_gcc_major_version=`gcc --version | grep gcc | cut -d ' ' -f 4 | cut -d '.' -f 1`;
+if [ $c_gcc_major_version -lt 7 ];then
+echo 警告：当前gcc版本过低。继续编译可能因出错而中断。
+fi
+c_gpp_major_version=`g++ --version | grep g++ | cut -d ' ' -f 4 | cut -d '.' -f 1`;
+if [ $c_gpp_major_version -lt 7 ];then
+echo 警告：当前g++版本过低。继续编译可能因出错而中断。
+fi
+if [ ! -f .ready ];then
+echo 错误：当前程序未初始化。请阅读README。
+exit 1
+fi
 set -u
 echo Configure:
 echo TARGET_BUILD_GCC : $TARGET_BUILD_GCC
@@ -40,6 +64,8 @@ echo INSTALL PATH PREFIX : $PREFIX
 echo BUILDING THREAD : $THREAD THREADS
 echo BUILD DESP : $PKGDESP
 echo ENABLED LANGUAGES : $GCCLANG
+echo USE-TSINGHUA-TUNA-MIRROR : $USETUNA
+#echo 注意：如果你在国内，推荐Ctrl-Z然后使用加上USETUNA=1选项来使用清华镜像源。如：USETUNA=1 ./autobuild
 sleep 5
 echo PROGRAM RUNNING!
 
@@ -55,51 +81,56 @@ do
 	echo Extracting $i
 	tar xf down/$i -C unzip
 done
-echo Downloading prerequisites from gnu.org...
 cd $BUILDHOME/unzip/gcc*
-contrib/download_prerequisites
+mv $BUILDHOME/down/gmp* . || exit 1
+mv $BUILDHOME/down/mpfr* . || exit 1
+mv $BUILDHOME/down/mpc* . || exit 1
+mv $BUILDHOME/down/isl* . || exit 1
+ln -s gmp* gmp || exit 1
+ln -s mpfr* mpfr || exit 1
+ln -s mpc* mpc || exit 1
+ln -s isl* isl || exit 1
 fi
 cd $BUILDHOME
 mkdir -vp builds/binutils
 cd builds/binutils
-$BUILDHOME/unzip/binutils*/configure --target=$TARGET --disable-multilib --prefix=$PREFIX
-make -j$THREAD && make install
+$BUILDHOME/unzip/binutils*/configure --target=$TARGET --disable-multilib --prefix=$PREFIX || exit 1
+make -j$THREAD && make install || exit 1
 
 
 cd $BUILDHOME/unzip/linux*
-make INSTALL_HDR_PATH=$PREFIX/$TARGET headers_install
+make INSTALL_HDR_PATH=$PREFIX/$TARGET headers_install || exit 1
 
 
 mkdir -v $BUILDHOME/builds/gcc
 cd $BUILDHOME/builds/gcc
-$BUILDHOME/unzip/gcc*/configure --prefix=$PREFIX --target=$TARGET --enable-languages=$GCCLANG --disable-multilib --with-pkgversion=\"$PKGDESP\"
-sleep 15
-make -j$THREAD all-gcc && make install-gcc
+$BUILDHOME/unzip/gcc*/configure --prefix=$PREFIX --target=$TARGET --enable-languages=$GCCLANG --disable-multilib --with-pkgversion=\"$PKGDESP\" || exit 1
+make -j$THREAD all-gcc && make install-gcc || exit 1
 
 export PATH=$PREFIX/bin:$PATH
 
 mkdir -v $BUILDHOME/builds/glibc
 cd $BUILDHOME/builds/glibc
-$BUILDHOME/unzip/glibc*/configure --prefix=$PREFIX/$TARGET --host=$TARGET --with-headers=$PREFIX/$TARGET/include --disable-multilib libc_cv_forced_unwind=yes
-make install-bootstrap-headers=yes install-headers
-make -j$THREAD csu/subdir_lib
+$BUILDHOME/unzip/glibc*/configure --prefix=$PREFIX/$TARGET --host=$TARGET --with-headers=$PREFIX/$TARGET/include --disable-multilib libc_cv_forced_unwind=yes || exit 1
+make install-bootstrap-headers=yes install-headers || exit 1
+make -j$THREAD csu/subdir_lib || exit 1
 install csu/crt1.o csu/crti.o csu/crtn.o $PREFIX/$TARGET/lib
-$TARGET_BUILD_GCC -nostdlib -nostartfiles -shared -x c /dev/null -o $PREFIX/$TARGET/lib/libc.so
-touch $PREFIX/$TARGET/include/gnu/stubs.h
+$TARGET_BUILD_GCC -nostdlib -nostartfiles -shared -x c /dev/null -o $PREFIX/$TARGET/lib/libc.so || exit 1
+touch $PREFIX/$TARGET/include/gnu/stubs.h || exit 1
 
 
 cd $BUILDHOME/builds/gcc
-make -j$THREAD all-target-libgcc
-make install-target-libgcc
+make -j$THREAD all-target-libgcc || exit 1
+make install-target-libgcc || exit 1
 
 cd $BUILDHOME/builds/glibc
-make CFLAGS='-Wno-error -O2' -j$THREAD
-make install
+make CFLAGS='-Wno-error -O2' -j$THREAD || exit 1
+make install || exit 1
 
 
 cd $BUILDHOME/builds/gcc
-make -j$THREAD
-make install
+make -j$THREAD || exit 1
+make install || exit 1
 
 
 cd $BUILDHOME
@@ -111,3 +142,4 @@ echo FINISH TIME : UTC $end_time
 let end_time=end_time-start_time
 let start_time=end_time/60
 echo BUILD TIME: $end_time s,about $start_time min.
+echo 编译完成。编译好的gcc在install文件夹。

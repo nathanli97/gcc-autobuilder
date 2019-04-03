@@ -1,6 +1,4 @@
 这是一个自动编译GCC的脚本。
-在编译GCC前请仔细阅读GCC README中关于前置软件包的部分，确保所需要的软件包已经全部安装完毕。
-开始之前，请下载autobuild，在autobuild的同级目录下建立down目录，然后下载依赖软件包在该目录下。
 本脚本依赖的软件包有：gcc源码包、binutils源码包、glibc源码包、linux源码包。
 推荐的软件包版本：
 binutils 2.30
@@ -9,3 +7,5 @@ glibc 2.22
 linux 4.3.1
 (已经在Ubuntu18.10 配合以上软件源码包编译成功)
 编译大概需要耗时30分钟左右，如果发现bug或者有建议欢迎提出issue。
+!!重要：脚本运行顺序：init开头的脚本、autobuild。
+如果你要编译gcc 7.4.0 请运行init-gcc-7.4.0-from-tuna，然后运行autobuild.
